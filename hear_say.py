@@ -1,7 +1,7 @@
 #
 # Hear-Say CW-training audio files (MP3) generator
 #
-# May 21st 2023, Michele Giugliano, PhD
+# May 22st 2023, Michele Giugliano, PhD
 #
 # This script loads a series of WAV files, and generates a single MP3 file, composed of a (random) sequence of the original files,
 # alternating CW character sounds and voice cues, with a desired pause in between. Note that the "primitive" audio files,
@@ -20,7 +20,6 @@
 # MIT License (MIT)
 
 import os
-#from posix import waitpid       # for file handling
 import sys                      # for command line arguments
 import numpy as np              # for array handling
 from tqdm import tqdm           # for progress bar
@@ -28,11 +27,12 @@ import scipy.io.wavfile as wav  # for reading wav files
 from pydub import AudioSegment  # for saving mp3 files
 
 # Global variables
-pause_duration = 0.5          # Pause duration (in seconds) between characters (and voice cues)
-n_repetitions = 2000            # Number of repetitions of the random sequence of characters (NOTE: it taje 25 min to generate 2000 repetitions of 0.5s pause)
+pause_duration = 0.3            # Pause duration (in seconds) between characters (and voice cues)
+n_repetitions = 3000            # Number of repetitions of the random sequence of characters (NOTE: it taje 25 min to generate 2000 repetitions of 0.5s pause)
+voice_cue     = 0               # If 1, voice cues are added to the output audio file; otherwise set it to 0
 
 input_dir = './primitives/'   # Input directory, where "primtive" audio files are stored
-output_dir = './'             # Output directory, where the generated audio files will be stored
+output_dir = './output/'             # Output directory, where the generated audio files will be stored
 output_file = 'hear_say.wav'  # Output file name
 
 
@@ -55,24 +55,43 @@ for char in char_list:          # Loop over the characters...
 fs = wav.read(input_dir + char_list[0] + '.wav')[0] # Sampling frequency (Hz)
 #--------------------------------------------------------------------------------------------------------------------------
 
+# Extract the duration of each audio file (in samples)
+duration_cw = {}
+for char in char_list:
+    duration_cw[char] = len(cw_data[char])
+
+duration_cue = {}
+for char in char_list:
+    duration_cue[char] = len(voice_cues[char])
+
+# Generate the random sequence of characters
+sequence = np.random.randint(0, len(char_list), n_repetitions)
+
+# Calculating the total duration of the output audio file (in samples)
+total_duration = 0
+for i in range(n_repetitions):
+    total_duration += duration_cw[char_list[sequence[i]]] + int(fs * pause_duration) + voice_cue * duration_cue[char_list[sequence[i]]]
+
 # Core routine: generate the output audio file, randomly selecting the characters and the pauses...
-# Declare output_array as a numpy array dtype=int16
-output_array = np.array([], dtype=np.int16)
-#output_array = np.array([])
+# Allocate the entire output_array upfront as a numpy array dtype=int16
+# As opposed to append, this is orders of magnitude faster!
+output_array = np.zeros(total_duration, dtype=np.int16)
 
-# Set the output volume level (between 0 and 1) - WATCH OUT.
-output_volume = 1. #0.00001
-
+# Fill the output array with the random sequence of characters
 print("Generating the output audio file...")
-
+index = 0
 for i in tqdm (range (n_repetitions), desc="Generating..."):
-#for i in range(n_repetitions):                                      # Loop over the desired number of repetitions
-    char = char_list[np.random.randint(0, len(char_list))]          # Random character generated
+#for i in range(n_repetitions):
+    cw_dur = duration_cw[char_list[sequence[i]]]
+    cue_dur = duration_cue[char_list[sequence[i]]]
+    output_array[index:index + cw_dur] = cw_data[char_list[sequence[i]]]
+    index += cw_dur
+    output_array[index:index + int(fs * pause_duration)] = np.zeros(int(fs * pause_duration))
+    index += int(fs * pause_duration)
+    if voice_cue:
+        output_array[index:index + cue_dur] = voice_cues[char_list[sequence[i]]]
+        index += cue_dur
 
-    # Append the corresponding character sound and voice cue to the output array, with the desired volume
-    output_array = np.append(output_array, output_volume   * cw_data[char])
-    output_array = np.append(output_array, np.zeros(int(fs * pause_duration)))
-    #output_array = np.append(output_array, output_volume   * voice_cues[char])
 T = len(output_array) / fs
 print("Done! " + str(T) + " s [i.e. " + str(T/60.) + "min] of audio generated.")
 
@@ -80,12 +99,13 @@ print("Done! " + str(T) + " s [i.e. " + str(T/60.) + "min] of audio generated.")
 #wav.write(output_dir + output_file, fs, output_array.astype(np.int16))  # Let's write on disk the output wav file
 #print("Done!")
 
+if (voice_cue==1):
+    fname = 'hear_say'
+else:
+    fname = 'hear_miss'
+
 print("Saving on disk the output audio file as mp3...")
 rawdata = output_array.astype(np.int16)
 rawdata = rawdata.tobytes('F')    # was F The same using 'C' or none
 sound = AudioSegment(data=rawdata, sample_width=2, frame_rate=fs, channels=1)
-sound.export('hear_say' + str(pause_duration) + '.mp3', format='mp3')#, bitrate="128k")
-
-
-
-
+sound.export(output_dir + fname + str(pause_duration) + '.mp3', format='mp3')#, bitrate="128k")
