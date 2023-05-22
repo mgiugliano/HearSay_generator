@@ -1,0 +1,16 @@
+# .gitignore
+
+# Exclude folder "primitives" from git
+primitives/
+
+# Exclude ebook2cw from git
+ebook2cw
+ebook2cw.conf
+
+# Exclude mp3 and wav files from git
+output/
+*.mp3
+*.wav
+
+# Exclude macOs files from git
+.DS_Store

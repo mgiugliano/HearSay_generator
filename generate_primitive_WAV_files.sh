@@ -3,7 +3,7 @@
 # Generate "primitive" WAV files(macos version)
 # Bash script - Version 0.1
 #
-# Requires: ebook2cw (to generate CW audio) and say (text-to-speech)
+# Requires: ebook2cw (to generate CW audio) and say (text-to-speech) - both in the path
 #
 # May the Morse be with you!
 
@@ -18,6 +18,20 @@ chars=abcdefghijklmnopqrstuvwxyz1234567890/   # The characters to be used (37 ch
 /bin/mkdir -p ./primitives
 /bin/rm -f ./primitives/*.wav
 
+/bin/mkdir -p ./output
+
+echo "Generating the CW characters and voice cue WAV files - iv3ifz Michele Giugliano, PhD - 2023"
+echo " "
+echo "Character speed: $WPM WPM"
+echo "Tone frequency: $TONE Hz"
+echo "Sampling rate: $SRATE Hz"
+echo "Voice: $VOICE"
+echo "Voice rate: $VRATE WPM"
+echo "Characters: $chars"
+echo "Output directory: ./primitives"
+echo " "
+echo "Please wait..."
+echo " "
 
 #---------------------------------------------------------------------------------------
 sp="/-\|"
@@ -38,7 +52,7 @@ for i in `seq 0 $NCHARS`; do
 #for i in `seq 0 36`; do
     spin
     # Generate the cw waveform by ebook2cw (thanks Fabian Kurz, DJ1YFK!)
-    echo ${chars:$i:1} | ./ebook2cw -s $SRATE -w $WPM -f $TONE -T 0 -q 9 -o cw > /dev/null
+    echo ${chars:$i:1} | ebook2cw -s $SRATE -w $WPM -f $TONE -T 0 -q 9 -o cw > /dev/null
 
     # Let's use sox to convert the mp3 files to wav files
     if [ ${chars:$i:1} = "/" ]; then # if the character is a slash, it cannot be the name of the file
